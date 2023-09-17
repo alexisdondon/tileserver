@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tile-server.fullname" . }}
+  labels:
+    {{- include "tile-server.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "tile-server.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "tile-server.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "tile-server.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      volumes:
+        - name: data
+          emptyDir: {}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          {{- if .Values.initContainerDownload.enabled }}
+          args: ["--mbtiles", {{ .Values.initContainerDownload.mbtiles.file }} ]
+          {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.initContainerDownload.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: "/data"
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- if .Values.initContainerDownload.enabled }}
+      initContainers:
+        - name: download-s3
+          image: {{.Values.initContainerDownload.image }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /data;
+              MC_HOST_s3=https://{{ .Values.initContainerDownload.s3.accessKey }}:{{ .Values.initContainerDownload.s3.secretKey }}
+              {{- if .Values.initContainerDownload.s3.sessionToken }}
+              MC_HOST_s3=${MC_HOST_s3}:{{ .Values.initContainerDownload.s3.sessionToken }}
+              {{- end }}
+              MC_HOST_s3=${MC_HOST_s3}@{{ .Values.initContainerDownload.s3.endpoint }} mc cp s3/{{ .Values.initContainerDownload.s3.bucket }}/{{ .Values.initContainerDownload.mbtiles.file }}  /data/{{ .Values.initContainerDownload.mbtiles.file }}        
+          env:
+          volumeMounts:
+          - name: data
+            mountPath: "/data"
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
