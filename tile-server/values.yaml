@@ -1,6 +1,7 @@
 # Default values for tile-server https://github.com/maptiler/tileserver-gl
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
+# https://cadastre.data.gouv.fr/datasets/cadastre-etalab
 
 initContainerDownload:
   enabled: true
