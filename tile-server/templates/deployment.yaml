@@ -74,7 +74,10 @@ spec:
               {{- if .Values.initContainerDownload.s3.sessionToken }}
               MC_HOST_s3=${MC_HOST_s3}:{{ .Values.initContainerDownload.s3.sessionToken }}
               {{- end }}
-              MC_HOST_s3=${MC_HOST_s3}@{{ .Values.initContainerDownload.s3.endpoint }} mc cp s3/{{ .Values.initContainerDownload.s3.bucket }}/{{ .Values.initContainerDownload.mbtiles.file }}  /data/{{ .Values.initContainerDownload.mbtiles.file }}        
+              {{- if .Values.initContainerDownload.s3.insecure }}
+              INSECURE="--insecure"
+              {{- end }}
+              MC_HOST_s3=${MC_HOST_s3}@{{ .Values.initContainerDownload.s3.endpoint }} mc ${INSECURE} cp s3/{{ .Values.initContainerDownload.s3.bucket }}/{{ .Values.initContainerDownload.mbtiles.file }}  /data/{{ .Values.initContainerDownload.mbtiles.file }}        
           env:
           volumeMounts:
           - name: data
